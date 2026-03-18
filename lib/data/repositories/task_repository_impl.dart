@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/supabase_provider.dart';
@@ -64,7 +66,7 @@ class TaskRepositoryImpl implements TaskRepository {
 
     await _client.storage.from(_bucket).uploadBinary(
           storagePath,
-          bytes,
+          bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
           fileOptions: const FileOptions(upsert: true),
         );
 
