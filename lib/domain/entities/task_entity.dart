@@ -9,6 +9,7 @@ class TaskEntity {
     this.dueDate,
     required this.isCompleted,
     required this.createdAt,
+    this.fileUrls = const [],
   });
 
   final String id;
@@ -19,6 +20,9 @@ class TaskEntity {
   final bool isCompleted;
   final DateTime createdAt;
 
+  /// Public URLs of files attached to this task (stored in Supabase Storage).
+  final List<String> fileUrls;
+
   TaskEntity copyWith({
     String? id,
     String? title,
@@ -27,6 +31,7 @@ class TaskEntity {
     DateTime? dueDate,
     bool? isCompleted,
     DateTime? createdAt,
+    List<String>? fileUrls,
   }) {
     return TaskEntity(
       id: id ?? this.id,
@@ -36,6 +41,7 @@ class TaskEntity {
       dueDate: dueDate ?? this.dueDate,
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
+      fileUrls: fileUrls ?? this.fileUrls,
     );
   }
 }

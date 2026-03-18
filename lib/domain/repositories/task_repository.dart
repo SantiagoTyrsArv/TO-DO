@@ -14,4 +14,12 @@ abstract interface class TaskRepository {
 
   /// Permanently removes the task with the given [id].
   Future<void> deleteTask(String id);
+
+  /// Uploads [bytes] to Supabase Storage under `tasks/[taskId]/[fileName]`
+  /// and returns the public download URL.
+  Future<String> uploadFile({
+    required String taskId,
+    required List<int> bytes,
+    required String fileName,
+  });
 }

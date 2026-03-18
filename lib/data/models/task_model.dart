@@ -10,10 +10,17 @@ class TaskModel extends TaskEntity {
     super.dueDate,
     required super.isCompleted,
     required super.createdAt,
+    super.fileUrls = const [],
   });
 
   // ── Deserialization ───────────────────────────────────────────────────────
   factory TaskModel.fromMap(Map<String, dynamic> map) {
+    // file_urls comes back as List<dynamic> from Supabase
+    final rawUrls = map['file_urls'];
+    final urls = rawUrls is List
+        ? rawUrls.map((e) => e.toString()).toList()
+        : <String>[];
+
     return TaskModel(
       id: map['id'] as String,
       title: map['title'] as String,
@@ -24,6 +31,7 @@ class TaskModel extends TaskEntity {
           : null,
       isCompleted: (map['is_completed'] as bool?) ?? false,
       createdAt: DateTime.parse(map['created_at'] as String).toLocal(),
+      fileUrls: urls,
     );
   }
 
@@ -36,12 +44,12 @@ class TaskModel extends TaskEntity {
       'category': category,
       'due_date': dueDate?.toUtc().toIso8601String(),
       'is_completed': isCompleted,
+      'file_urls': fileUrls,
       // created_at is managed by the DB default, omit on insert
     };
   }
 
-  /// Creates a [TaskModel] from a [TaskEntity] (useful for converting
-  /// domain objects before persisting them).
+  /// Creates a [TaskModel] from a [TaskEntity].
   factory TaskModel.fromEntity(TaskEntity entity) {
     return TaskModel(
       id: entity.id,
@@ -51,6 +59,7 @@ class TaskModel extends TaskEntity {
       dueDate: entity.dueDate,
       isCompleted: entity.isCompleted,
       createdAt: entity.createdAt,
+      fileUrls: entity.fileUrls,
     );
   }
 }

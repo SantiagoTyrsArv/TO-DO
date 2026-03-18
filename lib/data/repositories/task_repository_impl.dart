@@ -10,6 +10,7 @@ class TaskRepositoryImpl implements TaskRepository {
   TaskRepositoryImpl();
 
   static const String _table = 'tasks';
+  static const String _bucket = 'task-files';
 
   SupabaseClient get _client => SupabaseProvider.client;
 
@@ -48,5 +49,25 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<void> deleteTask(String id) async {
     await _client.from(_table).delete().eq('id', id);
+  }
+
+  // ── File Upload ───────────────────────────────────────────────────────────
+  @override
+  Future<String> uploadFile({
+    required String taskId,
+    required List<int> bytes,
+    required String fileName,
+  }) async {
+    // Sanitise the filename (replace spaces) to avoid URL encoding issues
+    final safeName = fileName.replaceAll(' ', '_');
+    final storagePath = 'tasks/$taskId/$safeName';
+
+    await _client.storage.from(_bucket).uploadBinary(
+          storagePath,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
+    return _client.storage.from(_bucket).getPublicUrl(storagePath);
   }
 }

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/task_entity.dart';
 import '../../domain/repositories/task_repository.dart';
 
-/// Pantalla 4 — Adding Task
-/// Form screen for creating a new task.
+/// Pantalla 4 — Adding Task (with file attachments support)
 class AddTaskScreen extends StatefulWidget {
   const AddTaskScreen({super.key, required this.repository});
 
@@ -26,14 +26,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   DateTime? _selectedDate;
   bool _saving = false;
 
+  /// Picked files (not yet uploaded — uploaded on Confirm)
+  final List<PlatformFile> _pickedFiles = [];
+
   static const _categories = [
-    'Healthy',
-    'Design',
-    'Job',
-    'Education',
-    'Sport',
-    'Personal',
-    'General',
+    'Healthy', 'Design', 'Job', 'Education', 'Sport', 'Personal', 'General',
   ];
 
   @override
@@ -43,31 +40,67 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     super.dispose();
   }
 
+  // ── File picking ──────────────────────────────────────────────────────────
+  Future<void> _pickFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      withData: true, // ensures bytes are available cross-platform
+    );
+    if (result == null) return;
+
+    // Merge with existing picks, avoiding duplicates by name
+    final existing = _pickedFiles.map((f) => f.name).toSet();
+    final newFiles =
+        result.files.where((f) => !existing.contains(f.name)).toList();
+
+    setState(() => _pickedFiles.addAll(newFiles));
+  }
+
+  void _removeFile(int index) {
+    setState(() => _pickedFiles.removeAt(index));
+  }
+
+  // ── Date picker ───────────────────────────────────────────────────────────
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: AppColors.primary),
-          ),
-          child: child!,
-        );
-      },
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme:
+              const ColorScheme.light(primary: AppColors.primary),
+        ),
+        child: child!,
+      ),
     );
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
+  // ── Save ──────────────────────────────────────────────────────────────────
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
     try {
+      final taskId = const Uuid().v4();
+
+      // 1. Upload each file and collect public URLs
+      final fileUrls = <String>[];
+      for (final file in _pickedFiles) {
+        if (file.bytes == null) continue;
+        final url = await widget.repository.uploadFile(
+          taskId: taskId,
+          bytes: file.bytes!,
+          fileName: file.name,
+        );
+        fileUrls.add(url);
+      }
+
+      // 2. Create task with URLs already attached
       final task = TaskEntity(
-        id: const Uuid().v4(),
+        id: taskId,
         title: _titleCtrl.text.trim(),
         description: _descCtrl.text.trim().isEmpty
             ? null
@@ -76,8 +109,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         dueDate: _selectedDate,
         isCompleted: false,
         createdAt: DateTime.now(),
+        fileUrls: fileUrls,
       );
       await widget.repository.addTask(task);
+
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
@@ -92,6 +127,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     }
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -102,11 +138,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
-          'Adding Task',
-          style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600, fontSize: 17),
-        ),
+        title: Text('Adding Task',
+            style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600, fontSize: 17)),
       ),
       body: Form(
         key: _formKey,
@@ -118,19 +152,19 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Title ─────────────────────────────────────────────
+                    // ── Title ──────────────────────────────────────────────
                     TextFormField(
                       controller: _titleCtrl,
                       textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(hintText: 'Task Title'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty)
-                              ? 'Enter a title'
-                              : null,
+                      decoration:
+                          const InputDecoration(hintText: 'Task Title'),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Enter a title'
+                          : null,
                     ),
                     const SizedBox(height: 14),
 
-                    // ── Description ───────────────────────────────────────
+                    // ── Description ────────────────────────────────────────
                     TextFormField(
                       controller: _descCtrl,
                       maxLines: 4,
@@ -139,14 +173,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         hintText: 'Description',
                         suffixText: 'Not Required',
                         suffixStyle: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: AppColors.textLight,
-                        ),
+                            fontSize: 11, color: AppColors.textLight),
                       ),
                     ),
                     const SizedBox(height: 14),
 
-                    // ── Date picker ───────────────────────────────────────
+                    // ── Date picker ────────────────────────────────────────
                     _ActionRow(
                       icon: Icons.calendar_today_rounded,
                       label: _selectedDate == null
@@ -156,22 +188,53 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // ── Additional files (UI only) ────────────────────────
+                    // ── Additional Files ───────────────────────────────────
                     _ActionRow(
-                      icon: Icons.add_circle_outline_rounded,
-                      label: 'Additional Files',
-                      onTap: () {},
+                      icon: Icons.attach_file_rounded,
+                      label: _pickedFiles.isEmpty
+                          ? 'Additional Files'
+                          : '${_pickedFiles.length} file${_pickedFiles.length > 1 ? 's' : ''} selected',
+                      onTap: _pickFiles,
                     ),
+
+                    // ── File chips ─────────────────────────────────────────
+                    if (_pickedFiles.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _pickedFiles.asMap().entries.map((e) {
+                          final i = e.key;
+                          final f = e.value;
+                          return Chip(
+                            avatar: Icon(
+                              _iconForFile(f.name),
+                              size: 16,
+                              color: AppColors.primary,
+                            ),
+                            label: Text(
+                              f.name.length > 20
+                                  ? '${f.name.substring(0, 18)}…'
+                                  : f.name,
+                              style: GoogleFonts.poppins(fontSize: 11),
+                            ),
+                            deleteIcon: const Icon(Icons.close, size: 14),
+                            onDeleted: () => _removeFile(i),
+                            backgroundColor: AppColors.primaryLight,
+                            side: BorderSide.none,
+                          );
+                        }).toList(),
+                      ),
+                    ],
                     const SizedBox(height: 24),
 
-                    // ── Categories ────────────────────────────────────────
+                    // ── Categories ─────────────────────────────────────────
                     Text(
                       'Choose Category',
                       style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textDark,
-                      ),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textDark),
                     ),
                     const SizedBox(height: 12),
                     Wrap(
@@ -217,7 +280,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               ),
             ),
 
-            // ── Confirm button ──────────────────────────────────────────────
+            // ── Confirm button ─────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
               child: SizedBox(
@@ -230,8 +293,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
+                        borderRadius: BorderRadius.circular(30)),
                   ),
                   child: _saving
                       ? const SizedBox(
@@ -243,9 +305,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       : Text(
                           'Confirm Adding',
                           style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
+                              fontSize: 15, fontWeight: FontWeight.w600),
                         ),
                 ),
               ),
@@ -254,6 +314,32 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         ),
       ),
     );
+  }
+
+  IconData _iconForFile(String name) {
+    final ext = name.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'pdf':
+        return Icons.picture_as_pdf_rounded;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'webp':
+        return Icons.image_rounded;
+      case 'mp4':
+      case 'mov':
+      case 'avi':
+        return Icons.videocam_rounded;
+      case 'doc':
+      case 'docx':
+        return Icons.description_rounded;
+      case 'xls':
+      case 'xlsx':
+        return Icons.table_chart_rounded;
+      default:
+        return Icons.insert_drive_file_rounded;
+    }
   }
 }
 
@@ -275,8 +361,7 @@ class _ActionRow extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: AppColors.primaryLight,
           borderRadius: BorderRadius.circular(14),
@@ -289,10 +374,9 @@ class _ActionRow extends StatelessWidget {
               child: Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primary,
-                ),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primary),
               ),
             ),
             const Icon(Icons.chevron_right_rounded,
