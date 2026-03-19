@@ -432,6 +432,7 @@ class _ActionRow extends StatelessWidget {
       ],
     );
   }
+} // end _ActionRow
 
 // ── Input formatter: blocks leading spaces as the user types ─────────────────
 
@@ -441,11 +442,9 @@ class _NoLeadingSpaceFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    // If the new text would start with a space, reject the change entirely
     if (newValue.text.startsWith(' ')) {
       return oldValue;
     }
     return newValue;
   }
-}
 }
