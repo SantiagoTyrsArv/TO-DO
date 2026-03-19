@@ -15,17 +15,22 @@ class TaskCard extends StatelessWidget {
     required this.task,
     required this.onToggle,
     this.onDelete,
+    this.onTap,
   });
 
   final TaskEntity task;
   final VoidCallback onToggle;
   final VoidCallback? onDelete;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final hasAttachments = task.fileUrls.isNotEmpty;
 
-    return Container(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
@@ -118,6 +123,7 @@ class TaskCard extends StatelessWidget {
           ],
         ),
       ),
+      ), // end InkWell child
     );
   }
 }

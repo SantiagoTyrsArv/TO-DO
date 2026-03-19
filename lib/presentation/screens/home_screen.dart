@@ -6,6 +6,7 @@ import '../../domain/entities/task_entity.dart';
 import '../../domain/repositories/task_repository.dart';
 import '../widgets/task_card.dart';
 import '../widgets/weekly_tasks_card.dart';
+import 'task_detail_screen.dart';
 
 /// Pantalla 1 — Home
 /// Shows weekly stats, today's progress, and the full task list.
@@ -48,6 +49,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _deleteTask(String id) async {
     await widget.repository.deleteTask(id);
+    await _loadTasks();
+  }
+
+  Future<void> _openDetail(TaskEntity task) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TaskDetailScreen(
+          task: task,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    // Always reload so completions/deletions from the detail screen are shown
     await _loadTasks();
   }
 
@@ -178,6 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ...(_tasks.map(
                             (t) => TaskCard(
                               task: t,
+                              onTap: () => _openDetail(t),
                               onToggle: () => _toggleTask(t),
                               onDelete: () => _deleteTask(t.id),
                             ),
