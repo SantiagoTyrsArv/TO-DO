@@ -25,6 +25,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   String _selectedCategory = 'General';
   DateTime? _selectedDate;
   bool _saving = false;
+  bool _dateError = false; // shown when user submits without picking a date
 
   /// Picked files (not yet uploaded — uploaded on Confirm)
   final List<PlatformFile> _pickedFiles = [];
@@ -80,7 +81,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Validate the date separately (not a TextFormField)
+    final formOk = _formKey.currentState!.validate();
+    final dateOk = _selectedDate != null;
+    setState(() => _dateError = !dateOk);
+    if (!formOk || !dateOk) return;
     setState(() => _saving = true);
 
     try {
@@ -102,9 +107,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       final task = TaskEntity(
         id: taskId,
         title: _titleCtrl.text.trim(),
-        description: _descCtrl.text.trim().isEmpty
-            ? null
-            : _descCtrl.text.trim(),
+        description: _descCtrl.text.trim(),
         category: _selectedCategory,
         dueDate: _selectedDate,
         isCompleted: false,
@@ -156,11 +159,17 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     TextFormField(
                       controller: _titleCtrl,
                       textCapitalization: TextCapitalization.sentences,
-                      decoration:
-                          const InputDecoration(hintText: 'Task Title'),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Enter a title'
-                          : null,
+                      maxLength: 80,
+                      decoration: const InputDecoration(
+                        hintText: 'Task Title',
+                        counterText: '',
+                      ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Enter a title';
+                        if (v != v.trimLeft()) return 'Cannot start with spaces';
+                        if (v.trim().isEmpty) return 'Enter a title';
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 14),
 
@@ -168,13 +177,18 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     TextFormField(
                       controller: _descCtrl,
                       maxLines: 4,
+                      maxLength: 500,
                       textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'Description',
-                        suffixText: 'Not Required',
-                        suffixStyle: GoogleFonts.poppins(
-                            fontSize: 11, color: AppColors.textLight),
+                        alignLabelWithHint: true,
                       ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Enter a description';
+                        if (v != v.trimLeft()) return 'Cannot start with spaces';
+                        if (v.trim().isEmpty) return 'Enter a description';
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 14),
 
@@ -184,7 +198,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       label: _selectedDate == null
                           ? 'Select Date In Calendar'
                           : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
-                      onTap: _pickDate,
+                      onTap: () {
+                        _pickDate();
+                        setState(() => _dateError = false);
+                      },
+                      hasError: _dateError,
+                      errorText: 'Please select a date',
                     ),
                     const SizedBox(height: 12),
 
@@ -350,40 +369,68 @@ class _ActionRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.hasError = false,
+    this.errorText,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool hasError;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.primaryLight,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColors.primary, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary),
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: hasError
+                  ? AppColors.dangerLight
+                  : AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(14),
+              border: hasError
+                  ? Border.all(color: AppColors.danger, width: 1.2)
+                  : null,
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.primary, size: 20),
-          ],
+            child: Row(
+              children: [
+                Icon(icon,
+                    color: hasError ? AppColors.danger : AppColors.primary,
+                    size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: hasError
+                            ? AppColors.danger
+                            : AppColors.primary),
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded,
+                    color: hasError ? AppColors.danger : AppColors.primary,
+                    size: 20),
+              ],
+            ),
+          ),
         ),
-      ),
+        if (hasError && errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 12, top: 6),
+            child: Text(
+              errorText!,
+              style: GoogleFonts.poppins(
+                  fontSize: 12, color: AppColors.danger),
+            ),
+          ),
+      ],
     );
   }
 }
