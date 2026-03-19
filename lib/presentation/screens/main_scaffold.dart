@@ -21,6 +21,7 @@ class MainScaffold extends StatefulWidget {
 
 class _MainScaffoldState extends State<MainScaffold> {
   int _currentIndex = 0;
+  int _homeRefreshKey = 0; // incremented to force HomeScreen to reload
 
   /// Navigate to Add Task screen as a full-screen route and reload if saved.
   Future<void> _openAddTask() async {
@@ -32,10 +33,8 @@ class _MainScaffoldState extends State<MainScaffold> {
     // If a task was saved, force the home screen to reload by rebuilding.
     if (result == true && mounted) {
       setState(() {
-        // The IndexedStack children hold their state; nudge state to trigger
-        // initState on the visible screen is done by using GlobalKeys.
-        // Here we simply switch to home (index 0) and back to force re-init.
         _currentIndex = 0;
+        _homeRefreshKey++; // forces HomeScreen to rebuild with fresh data
       });
     }
   }
@@ -50,7 +49,10 @@ class _MainScaffoldState extends State<MainScaffold> {
       case 2:
         return StatsScreen(repository: widget.repository);
       default:
-        return HomeScreen(repository: widget.repository);
+        return HomeScreen(
+          key: ValueKey(_homeRefreshKey),
+          repository: widget.repository,
+        );
     }
   }
 

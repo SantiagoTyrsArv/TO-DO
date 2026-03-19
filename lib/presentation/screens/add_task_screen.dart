@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
@@ -160,14 +161,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       controller: _titleCtrl,
                       textCapitalization: TextCapitalization.sentences,
                       maxLength: 80,
+                      inputFormatters: [_NoLeadingSpaceFormatter()],
                       decoration: const InputDecoration(
                         hintText: 'Task Title',
                         counterText: '',
                       ),
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'Enter a title';
-                        if (v != v.trimLeft()) return 'Cannot start with spaces';
-                        if (v.trim().isEmpty) return 'Enter a title';
+                        if (v == null || v.trim().isEmpty) return 'Enter a title';
                         return null;
                       },
                     ),
@@ -178,15 +178,14 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       controller: _descCtrl,
                       maxLines: 4,
                       maxLength: 500,
+                      inputFormatters: [_NoLeadingSpaceFormatter()],
                       textCapitalization: TextCapitalization.sentences,
                       decoration: const InputDecoration(
                         hintText: 'Description',
                         alignLabelWithHint: true,
                       ),
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'Enter a description';
-                        if (v != v.trimLeft()) return 'Cannot start with spaces';
-                        if (v.trim().isEmpty) return 'Enter a description';
+                        if (v == null || v.trim().isEmpty) return 'Enter a description';
                         return null;
                       },
                     ),
@@ -433,4 +432,20 @@ class _ActionRow extends StatelessWidget {
       ],
     );
   }
+
+// ── Input formatter: blocks leading spaces as the user types ─────────────────
+
+class _NoLeadingSpaceFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // If the new text would start with a space, reject the change entirely
+    if (newValue.text.startsWith(' ')) {
+      return oldValue;
+    }
+    return newValue;
+  }
+}
 }
