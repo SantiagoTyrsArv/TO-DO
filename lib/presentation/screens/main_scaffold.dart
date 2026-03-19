@@ -40,20 +40,24 @@ class _MainScaffoldState extends State<MainScaffold> {
     }
   }
 
+  /// Builds a fresh screen widget every time the tab changes.
+  /// This guarantees [initState] fires on every navigation, so data
+  /// is always up-to-date without any extra state management.
+  Widget get _body {
+    switch (_currentIndex) {
+      case 1:
+        return CompletedScreen(repository: widget.repository);
+      case 2:
+        return StatsScreen(repository: widget.repository);
+      default:
+        return HomeScreen(repository: widget.repository);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      HomeScreen(repository: widget.repository),
-      CompletedScreen(repository: widget.repository),
-      StatsScreen(repository: widget.repository),
-    ];
-
     return Scaffold(
-      // Use IndexedStack so each screen preserves its scroll position.
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
-      ),
+      body: _body,
       bottomNavigationBar: _BottomBar(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
